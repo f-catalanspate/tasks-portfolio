@@ -1,0 +1,61 @@
+-- Step 1: Calculate Potential Demand per Record
+WITH PotentialDemandPerRecord AS (
+    SELECT
+        `City`,
+        `Date`,
+        DAYNAME(`Date`) AS `DayOfWeek`, -- Extract Day of the Week
+        `Hour`,
+        `Completed orders`,
+        `Shrinkage %`,
+        ROUND(`Completed orders` / (1 - 0.0025 * `Shrinkage %`)) AS `Potential Demand`
+    FROM
+        demand_data
+),
+
+-- Step 2: Aggregate Potential Demand per City, Year, Week, Day, and Hour
+AggregatedDemand AS (
+    SELECT
+        `City`,
+        YEAR(`Date`) AS `Year`,
+        WEEK(`Date`, 1) AS `Week`,
+        `DayOfWeek`,
+        `Hour`,
+        SUM(`Potential Demand`) AS `Total Potential Demand`
+    FROM
+        PotentialDemandPerRecord
+    GROUP BY
+        `City`,
+        `Year`,
+        `Week`,
+        `DayOfWeek`,
+        `Hour`
+),
+
+-- Step 3: Rank Hours Based on Total Potential Demand
+RankedDemand AS (
+    SELECT
+        `City`,
+        `Year`,
+        `Week`,
+        `DayOfWeek`,
+        `Hour`,
+        `Total Potential Demand`,
+        RANK() OVER (PARTITION BY `City`, `Year`, `Week` ORDER BY `Total Potential Demand` DESC) AS `Demand Rank`
+    FROM
+        AggregatedDemand
+)
+
+-- Step 4: Select Top 5 Peak Hours per City and Week
+SELECT
+    `City`,
+    `Year`,
+    `Week`,
+    `DayOfWeek`,
+    `Hour`,
+    `Total Potential Demand`
+FROM
+    RankedDemand
+WHERE
+    `Demand Rank` <= 5
+ORDER BY
+    `Total Potential Demand` DESC
