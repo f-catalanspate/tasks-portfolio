@@ -1,0 +1,30 @@
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+data = pd.read_csv('sizing_task1.csv', delimiter=';')
+
+days_order = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+data['DayOfWeek'] = pd.Categorical(data['DayOfWeek'], categories=days_order, ordered=True)
+
+avg_demand_supply_per_hour = data.groupby('Hour').agg(
+    AvgPotentialDemand=('Total Potential Demand', 'mean'),
+    AvgSupply=('Total Supply', 'mean')  # Replace 'Total Supply' with actual supply column
+).reset_index()
+
+plt.figure(figsize=(10, 6))
+
+plt.plot(avg_demand_supply_per_hour['Hour'], avg_demand_supply_per_hour['AvgPotentialDemand'], 
+         marker='o', label='Average Potential Demand', color='orange')
+
+plt.plot(avg_demand_supply_per_hour['Hour'], avg_demand_supply_per_hour['AvgSupply'], 
+         marker='o', label='Average Supply', color='green')
+
+plt.title('24-Hour Curve of Average Potential Demand and Supply')
+plt.xlabel('Hour of Day')
+plt.ylabel('Average Volume')
+plt.xticks(range(0, 24))
+plt.grid(True)
+plt.legend()
+
+plt.show()
