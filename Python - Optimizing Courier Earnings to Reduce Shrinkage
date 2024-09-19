@@ -1,0 +1,54 @@
+file_path_new = '/mnt/data/file-qxvk6cqg1UrRaU6xZ93jE2pP.csv'
+demand_data = pd.read_csv(file_path_new)
+
+demand_data.head()
+
+file_path_new = '/mnt/data/Marketplace Ops - Home Task - Demand.csv'
+demand_data = pd.read_csv(file_path_new)
+
+demand_data.head()
+
+demand_data['Completed Orders'] = demand_data['Completed Orders'].str.replace(',', '').astype(float)
+
+demand_data['Shrinkage %'] = demand_data['Shrinkage %'].str.replace('%', '').astype(float)
+
+demand_data['Date'] = pd.to_datetime(demand_data['Date'])
+
+demand_data['Week'] = demand_data['Date'].dt.isocalendar().week
+
+demand_data.head()
+
+highest_shrinkage_per_city = demand_data.groupby(['City', 'Week']).agg({'Shrinkage %': 'mean'}).reset_index()
+
+max_shrinkage_per_city = highest_shrinkage_per_city.loc[highest_shrinkage_per_city.groupby('City')['Shrinkage %'].idxmax()]
+
+max_shrinkage_per_city
+
+# Assumptions and parameters
+cost_per_courier_hour = 8  # in euros
+average_order_value = 16  # in euros
+merchant_commission = 0.25
+delivery_fee = 1  # in euros
+orders_lost_per_shrinkage = 0.25 / 100  # 0.25% loss per 1% shrinkage
+
+def calculate_additional_couriers_and_investment(shrinkage, completed_orders):
+    potential_orders_lost = completed_orders * shrinkage * orders_lost_per_shrinkage
+    
+    additional_courier_hours = potential_orders_lost  # Simplification: 1 courier = 1 order
+
+    total_additional_cost = additional_courier_hours * cost_per_courier_hour
+    
+    revenue_per_order = (average_order_value * merchant_commission) + delivery_fee
+    
+    total_additional_revenue = potential_orders_lost * revenue_per_order
+    
+    return additional_courier_hours, total_additional_cost, total_additional_revenue
+
+completed_orders_by_city = demand_data.groupby(['City', 'Week']).agg({'Completed Orders': 'sum'}).reset_index()
+
+max_shrinkage_data = pd.merge(max_shrinkage_per_city, completed_orders_by_city, on=['City', 'Week'])
+
+max_shrinkage_data[['Additional Courier Hours', 'Total Additional Cost', 'Total Additional Revenue']] = max_shrinkage_data.apply(
+    lambda row: calculate_additional_couriers_and_investment(row['Shrinkage %'], row['Completed Orders']), axis=1, result_type='expand')
+
+max_shrinkage_data[['City', 'Week', 'Shrinkage %', 'Completed Orders', 'Additional Courier Hours', 'Total Additional Cost', 'Total Additional Revenue']]
