@@ -6,23 +6,25 @@ WITH PotentialDemandPerRecord AS (
         `Hour`,
         `Completed orders`,
         `Shrinkage %`,
-        `Completed orders` / (1 - 0.0025 * `Shrinkage %`) AS `Potential Demand`
+        ROUND(`Completed orders` / (1 - 0.0025 * `Shrinkage %`)) AS `Potential Demand`
     FROM
         demand_data
 ),
 
--- Step 2: Aggregate Potential Demand per City, Week, and Hour
+-- Step 2: Aggregate Potential Demand per City, Year, Week, and Hour
 AggregatedDemand AS (
     SELECT
         `City`,
-        YEARWEEK(`Date`, 1) AS `YearWeek`,
+        YEAR(`Date`) AS `Year`,
+        WEEK(`Date`, 1) AS `Week`,
         `Hour`,
         SUM(`Potential Demand`) AS `Total Potential Demand`
     FROM
         PotentialDemandPerRecord
     GROUP BY
         `City`,
-        `YearWeek`,
+        `Year`,
+        `Week`,
         `Hour`
 ),
 
@@ -30,10 +32,11 @@ AggregatedDemand AS (
 RankedDemand AS (
     SELECT
         `City`,
-        `YearWeek`,
+        `Year`,
+        `Week`,
         `Hour`,
         `Total Potential Demand`,
-        RANK() OVER (PARTITION BY `City`, `YearWeek` ORDER BY `Total Potential Demand` DESC) AS `Demand Rank`
+        RANK() OVER (PARTITION BY `City`, `Year`, `Week` ORDER BY `Total Potential Demand` DESC) AS `Demand Rank`
     FROM
         AggregatedDemand
 )
@@ -41,11 +44,13 @@ RankedDemand AS (
 -- Step 4: Select Top 5 Peak Hours per City and Week
 SELECT
     `City`,
-    `YearWeek`,
+    `Year`,
+    `Week`,
     `Hour`,
     `Total Potential Demand`
 FROM
     RankedDemand
 WHERE
     `Demand Rank` <= 5
-ORDER BY 4 DESC
+ORDER BY
+    `Total Potential Demand` DESC
